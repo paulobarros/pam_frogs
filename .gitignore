@@ -1,0 +1,9 @@
+.Rproj.user
+*.wav
+*.WAV
+**/raw/
+**/processed/
+**/filtered/
+*.RDS
+*.txt
+*.csv

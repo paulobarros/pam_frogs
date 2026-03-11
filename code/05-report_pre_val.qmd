@@ -1,0 +1,183 @@
+---
+title: Report Pre-validação
+format: 
+  html:
+    embed-resources: true
+    self-contained-math: true
+    output-file: "report_pre_val.html"
+execute: 
+  echo: false
+  warning: false
+  error: false
+
+---
+
+
+```{r}
+#| title: data ingestion and packages
+
+pacman::p_load(tidyverse,monitoR,here,glue,janitor,RColorBrewer,progress,progressr,ggtext,rstatix,gt,gtExtras)
+
+
+detections <- readRDS(here("data","testDetections.RDS"))
+
+```
+
+## Estatísticas Básicas
+
+```{r}
+
+n_files <- list.files(here("landscape/filtered/"), recursive = T) |> length()
+
+n_det <- detections |> 
+    filter(!is.na(template)) |> 
+    nrow()
+
+n_temp <- detections |> 
+    filter(!is.na(template)) |>
+    distinct(template) |> 
+    count()
+```
+
+Arquivos de áudio processados: `r n_files`
+
+Número total de detecções (>= 0.5): `r n_det`
+
+Templates: `r n_temp`
+
+
+### Detecções por template:
+
+```{r}
+detections |>
+    filter(!is.na(template)) |>
+    group_by(template) |>
+    count() |>
+    ungroup() |>
+    gt() |>
+    gt::grand_summary_rows(
+        fns = list(label = "Total", id = "total", fn = "sum"),
+        columns = c(n)
+        
+    ) |>
+    gtExtras::gt_theme_538() |>
+    tab_style(locations = cells_column_labels(),
+    style = cell_text(transform = "capitalize",
+    weight = "bold"))
+```
+
+
+### Estatísticas de detecção
+
+
+#### Geral
+```{r}
+detections |>
+    filter(!is.na(template)) |>
+    get_summary_stats(score, show = c("mean","sd","min","max")) |>
+    gt() |>
+    gtExtras::gt_theme_538() |>
+    tab_style(locations = cells_column_labels(),
+    style = cell_text(transform = "capitalize",
+    weight = "bold"))
+```
+
+#### Por template
+```{r}
+detections |>
+    filter(!is.na(template)) |>
+    group_by(template) |>
+    get_summary_stats(score, show = c("mean","sd","min","max")) |>
+    gt() |>
+    gtExtras::gt_theme_538() |>
+    tab_style(locations = cells_column_labels(),
+    style = cell_text(transform = "capitalize",
+    weight = "bold"))
+```
+
+#### Distribuição dos scores por template
+
+```{r}
+#| fig-align: center
+detections |>
+    filter(!is.na(template)) |>
+    ggplot(aes(x = score)) +
+    geom_histogram(color = "gray30", fill= "gray80") +
+    facet_wrap(~template, scales = "free_y")
+```
+
+
+## Estatísticas horárias
+
+
+```{r}
+detections |>
+    filter(!is.na(template)) |>
+    mutate(hora = paste0(hour(date.time),":",
+        if_else(minute(date.time) |> as.character() == "0",
+        "00",
+        minute(date.time) |> as.character()))) |>
+    group_by(hora) |>
+    get_summary_stats(score, show = c("mean","sd","min","max")) |>
+    gt() |>
+    gtExtras::gt_theme_538() |>
+    tab_style(locations = cells_column_labels(),
+    style = cell_text(transform = "capitalize",
+    weight = "bold")) |>
+    data_color(
+    columns = n, 
+    direction = "column", 
+    palette = "viridis"   
+  )
+    
+detections |>
+    filter(!is.na(template)) |>
+    mutate(hora = paste0(hour(date.time),":",
+        if_else(minute(date.time) |> as.character() == "0",
+        "00",
+        minute(date.time) |> as.character()))) |>
+    group_by(hora) |>
+    get_summary_stats(score, show = c("mean","sd","min","max")) |>
+    ggplot(aes(x = hora, y = n)) +
+    geom_col(aes(fill = n)) +
+    theme_bw() +
+    scale_fill_viridis_c(option = "viridis",) +
+    theme(axis.text.x =  element_markdown(angle = 45,hjust = 1))
+
+
+```
+
+
+## Estatísticas Mensais
+
+
+```{r}
+detections |>
+    filter(!is.na(template)) |>
+     mutate(mes = month(date.time), ano = year(date.time)) |>
+    group_by(ano,mes) |>
+    get_summary_stats(score, show = c("mean","sd","min","max")) |>
+    gt( groupname_col = "ano") |>
+    gtExtras::gt_theme_538() |>
+    tab_style(locations = cells_column_labels(),
+    style = cell_text(transform = "capitalize",
+    weight = "bold")) |>
+    data_color(
+    columns = n, 
+    direction = "column", 
+    palette = "viridis"   
+  )
+    
+detections |>
+    filter(!is.na(template)) |>
+    mutate(mes = month(date.time), ano = year(date.time)) |>
+    group_by(ano,mes) |>
+    get_summary_stats(score, show = c("mean","sd","min","max")) |>
+    mutate(across(mes:ano, ~ as.factor(.x))) |>
+    ggplot(aes(x = mes, y = n)) +
+    geom_col(aes(fill = n), width = 0.2) +
+    theme_bw() +
+    scale_fill_viridis_c(option = "viridis",) +
+    facet_grid(~ano) +
+    theme(axis.text.x =  element_markdown(angle = 45,hjust = 1))
+```
