@@ -51,10 +51,15 @@ with_progress({
 ## Etapa 2 - Aplicando noise filter  --------------------------
 
 if(dir.exists(here("landscape/filtered"))){
-    unlink(here("landscape/filtered"), recursive = TRUE)
+  unlink(here("landscape/filtered"), recursive = TRUE)
 }
 
 dir.create(here("landscape/filtered"))  
+
+
+handlers(global = TRUE)
+handlers("progress") # Garante que a barra apareça no terminal
+plan(multisession, workers = parallel::detectCores() - 2)
 
 
 with_progress({
@@ -72,36 +77,26 @@ with_progress({
 
       cur_folder <- list.files(here("landscape/processed",folder),pattern = "*.wav")
       
-      walk(cur_folder,\(audio) {
-        p()
-        print(glue("Aplicando Noise Filter: {audio}"))
 
-        print(here("landscape/processed",folder,audio))
+      future_walk(cur_folder, \(audio_proc){
+
+          filtro_audio(audio_proc)
+          
+          p(sprintf("Aplicando filtro: %s", basename(audio_proc)))
         
-        # Faz leitura do audio
-        wav_file <- readWave(here("landscape","processed",folder,audio))
+      }, .options = furrr_options(seed = TRUE))
 
-        # 2. Aplica o filtro (frequências em Hz)
-        # 'from' e 'to' definem a janela de passagem
-        audio_limpo <- ffilter(wav_file,
-          from = 4000,
-          to = 6000,
-          bandpass = TRUE,
-          wl = 1024,
-          output = "Wave",
-          wn = "hanning")
-        
-        audio_norm <- normalize(audio_limpo, unit = "16")
-        
-        # 3. Salva o novo arquivo "limpo"
-        writeWave(audio_norm, here("landscape","filtered",folder,str_replace(audio,"\\.wav","_filt\\.wav")))
-
-
-      })
+      
 
       message(paste("\n>>> Pasta:", folder, " Processada ..."))
       
     })
   })
+
+
+
+
+
+
 
 

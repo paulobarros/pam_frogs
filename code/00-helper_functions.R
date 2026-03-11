@@ -1,5 +1,5 @@
 # pacotes
-pacman::p_load(tidyverse,monitoR,here,glue,janitor,RColorBrewer,tuneR, seewave,progress,progressr)
+pacman::p_load(tidyverse,monitoR,here,glue,janitor,RColorBrewer,tuneR, seewave,progress,progressr,furrr)
 
 # instala pacotes
 # só precisa rodar a primeira vez pra instalar
@@ -91,3 +91,32 @@ wav_filter <- function(audio) {
         
 }
 
+filtro_audio <- function(audio) {
+  print(glue("Aplicando Noise Filter: {audio}"))
+
+        pattern_i <- "^([[:alnum:]]+)_"
+
+        (match_i <- str_match(audio, pattern_i))
+  
+        (folder_i <- match_i[2])
+
+        print(here("landscape/processed",folder_i,audio))
+        
+        # Faz leitura do audio
+        wav_file <- readWave(here("landscape","processed",folder_i,audio))
+
+        # 2. Aplica o filtro (frequências em Hz)
+        # 'from' e 'to' definem a janela de passagem
+        audio_limpo <- ffilter(wav_file,
+          from = 4000,
+          to = 6000,
+          bandpass = TRUE,
+          wl = 1024,
+          output = "Wave",
+          wn = "hanning")
+        
+        audio_norm <- normalize(audio_limpo, unit = "16")
+        
+        # 3. Salva o novo arquivo "limpo"
+        writeWave(audio_norm, here("landscape","filtered",folder_i,str_replace(audio,"\\.wav","_filt\\.wav")))
+}
