@@ -71,6 +71,24 @@ raven_sel <- function(data,audio){
 
 }
 
+
+temp_save <- function(data,audio){
+
+  pattern <- "^([[:alnum:]]+)_(\\d{4}-\\d{2}-\\d{2}_\\d{6})"
+
+  folder_id <- str_match(audio,pattern = pattern)[2]
+  datetime <- str_match(audio,pattern = pattern)[3]
+
+  fname <- glue("{folder_id}_{str_replace_all(datetime,'-','')}_temp_det.RDS")
+  
+
+  # Salva Detecções em RDS
+  saveRDS(data, file = here("detections",today(),"raven_sel",folder_id,fname))
+
+  
+
+}
+
 rec_time <- function(recdate){
 
   pattern <- "^([[:alnum:]]+)_(\\d{4}-\\d{2}-\\d{2}_\\d{6})"
@@ -96,14 +114,14 @@ tempList <- readRDS(here("data","2026-03-04","template_2026-03-04.RDS"))
 land_folders <- list.files(here("landscape","filtered"))
 
 # exclui pasta do dia pra não sobrescrever
-unlink(here("detections",today()),recursive = TRUE)
+unlink(here("detections"),recursive = TRUE)
 
 # cria pasta da data
 dir.create(here("detections",today(),"raven_sel"), recursive = TRUE)
 
-teste <- land_folders |>
+land_folders |>
   set_names() |>
-  map(\(lsc_folder){
+  walk(\(lsc_folder){
 
     
 
@@ -121,7 +139,7 @@ teste <- land_folders |>
     # Faz o survey por arquivo, salva o objeto e salva o arquivo de validacao do raven
     survey_files |>
       set_names() |>
-      map(\(sur_file){
+      walk(\(sur_file){
         
         print("*******************************************************")
         print(glue("Audio: {lsc_folder} - {sur_file} ......."))
@@ -148,20 +166,29 @@ teste <- land_folders |>
             mutate(audio = sur_file, .before = 1)
         }
         
-        
-        
-        return(temp_det)
+        temp_save(temp_det,sur_file)
       })
 
   })
 
-teste
 
+detections <- list.files(here("detections"),recursive = TRUE, pattern = "*.RDS", full.names = TRUE) |>
+  map(\(x){
+    return(readRDS(x))
+  }) |>
+  reduce(bind_rows)
+
+detections <- 
 total_det <- flatten(teste) |>
 reduce(bind_rows)
 
+saveRDS(detections, here("data","testDetections.RDS"))
+
+detections |>
+  glimpse()
 
 #saveRDS(total_det,here("data","testDetections.RDS"))
 
 
 
+teste <- readRDS("/mnt/PB-Cloud/COLABS/PAM_ANA/detections/2026-03-24/raven_sel/A03/A03_20251219_191500_temp_det.RDS")
